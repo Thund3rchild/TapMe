@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clicker Game with Rebirth Feature</title>
+    <style>
+        /* Styles for the Clicker Game */
+
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+
+        #game {
+            width: 350px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+        }
+
+        #tapButton, #rebirthButton {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 10px;
+        }
+
+        h2 {
+            margin-top: 30px;
+        }
+
+        .upgrade {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .upgrade p {
+            margin: 5px 0;
+        }
+
+        .upgrade button {
+            font-size: 16px;
+            padding: 5px 10px;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Progress bar styles */
+        .progressContainer {
+            width: 100%;
+            background-color: #ddd;
+            height: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progressBar {
+            background-color: #4caf50;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>Clicker Game</h1>
+    <div id="game">
+        <p>Points: <span id="points">0</span></p>
+        <p>Points per Click: <span id="pointsPerClick">1</span></p>
+        <p>Points per Second: <span id="pointsPerSecond">0</span></p>
+        <p>Rebirths: <span id="rebirthCount">0</span></p>
+        <!-- 'Tap Me' button -->
+        <button id="tapButton">Tap Me</button>
+
+        <!-- Rebirth Section -->
+        <h2>Rebirth</h2>
+        <p>Cost to Rebirth: <span id="rebirthCost">1M</span></p>
+        <button id="rebirthButton" disabled>Rebirth</button>
+
+        <!-- Upgrades Section -->
+        <h2>Upgrades</h2>
+        <div id="upgrades">
+            <!-- Upgrade: Increase Points per Click -->
+            <div class="upgrade">
+                <p>Increase Points per Click</p>
+                <p>Level: <span id="upgradeClickLevel">0</span></p>
+                <p>Cost: <span id="upgradeClickCost">10</span></p>
+                <div class="progressContainer">
+                    <div id="upgradeClickProgress" class="progressBar"></div>
+                </div>
+                <button id="upgradeClickButton">Upgrade</button>
+            </div>
+            <!-- Upgrade: Increase Points per Second -->
+            <div class="upgrade">
+                <p>Increase Points per Second</p>
+                <p>Level: <span id="upgradeAutoLevel">0</span></p>
+                <p>Cost: <span id="upgradeAutoCost">50</span></p>
+                <div class="progressContainer">
+                    <div id="upgradeAutoProgress" class="progressBar"></div>
+                </div>
+                <button id="upgradeAutoButton">Upgrade</button>
+            </div>
+            <!-- Upgrade: Reduce Upgrade Costs -->
+            <div class="upgrade">
+                <p>Reduce Upgrade Costs</p>
+                <p>Level: <span id="upgradeCostReductionLevel">0</span></p>
+                <p>Cost: <span id="upgradeCostReductionCost">100</span></p>
+                <div class="progressContainer">
+                    <div id="upgradeCostReductionProgress" class="progressBar"></div>
+                </div>
+                <button id="upgradeCostReductionButton">Upgrade</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript code for Clicker Game with Dynamic Upgrades, Progress Bars, and Rebirth Feature
+
+        // Initialize variables
+        let points = 0;
+        let pointsPerClick = 1;
+        let pointsPerSecond = 0;
+        let clickUpgradeLevel = 0;
+        let autoUpgradeLevel = 0;
+        let costReductionLevel = 0;
+
+        // Rebirth variables
+        let rebirthCount = 0;
+        let rebirthCost = 1e6; // Initial cost to rebirth (1,000,000 points)
+        let rebirthMultiplier = 1; // Permanent multiplier applied after rebirth
+
+        // Upgrade costs
+        let upgradeClickCost = 10;
+        let upgradeAutoCost = 50;
+        let upgradeCostReductionCost = 100;
+
+        // Upgrade multipliers
+        const clickUpgradeMultiplier = 1.5;
+        const autoUpgradeMultiplier = 1.2;
+        const costReductionMultiplier = 0.9; // Reduces costs by 10%
+
+        // Auto-clicker interval
+        let autoClickerInterval = null;
+
+        // Function to format numbers with abbreviations
+        function formatNumber(num) {
+            if (num >= 1e15) {
+                return (num / 1e15).toFixed(2) + 'Q'; // Quadrillion
+            } else if (num >= 1e12) {
+                return (num / 1e12).toFixed(2) + 'T'; // Trillion
+            } else if (num >= 1e9) {
+                return (num / 1e9).toFixed(2) + 'B'; // Billion
+            } else if (num >= 1e6) {
+                return (num / 1e6).toFixed(2) + 'M'; // Million
+            } else if (num >= 1e3) {
+                return (num / 1e3).toFixed(2) + 'K'; // Thousand
+            } else {
+                return num.toFixed(0);
+            }
+        }
+
+        // Load saved game data from localStorage
+        function loadGame() {
+            if (localStorage.getItem('clickerGameSave')) {
+                let savedData = JSON.parse(localStorage.getItem('clickerGameSave'));
+                points = parseFloat(savedData.points) || 0;
+                pointsPerClick = parseFloat(savedData.pointsPerClick) || 1;
+                pointsPerSecond = parseFloat(savedData.pointsPerSecond) || 0;
+                clickUpgradeLevel = parseInt(savedData.clickUpgradeLevel) || 0;
+                autoUpgradeLevel = parseInt(savedData.autoUpgradeLevel) || 0;
+                costReductionLevel = parseInt(savedData.costReductionLevel) || 0;
+                upgradeClickCost = parseFloat(savedData.upgradeClickCost) || 10;
+                upgradeAutoCost = parseFloat(savedData.upgradeAutoCost) || 50;
+                upgradeCostReductionCost = parseFloat(savedData.upgradeCostReductionCost) || 100;
+                rebirthCount = parseInt(savedData.rebirthCount) || 0;
+                rebirthCost = parseFloat(savedData.rebirthCost) || 1e6;
+                rebirthMultiplier = parseFloat(savedData.rebirthMultiplier) || 1;
+            }
+            updateDisplay();
+        }
+
+        // Save game data to localStorage
+        function saveGame() {
+            let saveData = {
+                points: points,
+                pointsPerClick: pointsPerClick,
+                pointsPerSecond: pointsPerSecond,
+                clickUpgradeLevel: clickUpgradeLevel,
+                autoUpgradeLevel: autoUpgradeLevel,
+                costReductionLevel: costReductionLevel,
+                upgradeClickCost: upgradeClickCost,
+                upgradeAutoCost: upgradeAutoCost,
+                upgradeCostReductionCost: upgradeCostReductionCost,
+                rebirthCount: rebirthCount,
+                rebirthCost: rebirthCost,
+                rebirthMultiplier: rebirthMultiplier
+            };
+            localStorage.setItem('clickerGameSave', JSON.stringify(saveData));
+        }
+
+        // Update the displayed values on the page
+        function updateDisplay() {
+            document.getElementById('points').textContent = formatNumber(points);
+            document.getElementById('pointsPerClick').textContent = formatNumber(pointsPerClick);
+            document.getElementById('pointsPerSecond').textContent = formatNumber(pointsPerSecond);
+            document.getElementById('rebirthCount').textContent = rebirthCount;
+
+            // Update upgrade costs
+            document.getElementById('upgradeClickCost').textContent = formatNumber(upgradeClickCost);
+            document.getElementById('upgradeAutoCost').textContent = formatNumber(upgradeAutoCost);
+            document.getElementById('upgradeCostReductionCost').textContent = formatNumber(upgradeCostReductionCost);
+
+            // Update upgrade levels
+            document.getElementById('upgradeClickLevel').textContent = clickUpgradeLevel;
+            document.getElementById('upgradeAutoLevel').textContent = autoUpgradeLevel;
+            document.getElementById('upgradeCostReductionLevel').textContent = costReductionLevel;
+
+            // Update rebirth cost
+            document.getElementById('rebirthCost').textContent = formatNumber(rebirthCost);
+
+            // Enable or disable upgrade buttons
+            document.getElementById('upgradeClickButton').disabled = points < upgradeClickCost;
+            document.getElementById('upgradeAutoButton').disabled = points < upgradeAutoCost;
+            document.getElementById('upgradeCostReductionButton').disabled = points < upgradeCostReductionCost;
+
+            // Enable or disable rebirth button
+            document.getElementById('rebirthButton').disabled = points < rebirthCost;
+
+            // Update progress bars
+            updateProgressBars();
+        }
+
+        // Update progress bars based on points and upgrade costs
+        function updateProgressBars() {
+            // Update Click Upgrade Progress Bar
+            let clickProgressPercentage = (points / upgradeClickCost) * 100;
+            if (clickProgressPercentage > 100) clickProgressPercentage = 100;
+            document.getElementById('upgradeClickProgress').style.width = clickProgressPercentage + '%';
+
+            // Update Auto Upgrade Progress Bar
+            let autoProgressPercentage = (points / upgradeAutoCost) * 100;
+            if (autoProgressPercentage > 100) autoProgressPercentage = 100;
+            document.getElementById('upgradeAutoProgress').style.width = autoProgressPercentage + '%';
+
+            // Update Cost Reduction Upgrade Progress Bar
+            let costReductionProgressPercentage = (points / upgradeCostReductionCost) * 100;
+            if (costReductionProgressPercentage > 100) costReductionProgressPercentage = 100;
+            document.getElementById('upgradeCostReductionProgress').style.width = costReductionProgressPercentage + '%';
+        }
+
+        // Handle the 'Tap Me' button click
+        document.getElementById('tapButton').addEventListener('click', function() {
+            points += pointsPerClick * rebirthMultiplier;
+            updateDisplay();
+            saveGame();
+        });
+
+        // Rebirth function
+        function rebirth() {
+            if (points >= rebirthCost) {
+                // Deduct rebirth cost
+                points -= rebirthCost;
+                // Increase rebirth count
+                rebirthCount += 1;
+                // Increase rebirth multiplier
+                rebirthMultiplier += 0.5; // Each rebirth increases the multiplier by 0.5
+                // Increase rebirth cost for next time
+                rebirthCost *= 1.5;
+                // Reset progress
+                resetProgress();
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        // Reset progress function
+        function resetProgress() {
+            points = 0;
+            pointsPerClick = 1;
+            pointsPerSecond = 0;
+            clickUpgradeLevel = 0;
+            autoUpgradeLevel = 0;
+            costReductionLevel = 0;
+            upgradeClickCost = 10;
+            upgradeAutoCost = 50;
+            upgradeCostReductionCost = 100;
+            // Stop auto-clicker
+            if (autoClickerInterval) {
+                clearInterval(autoClickerInterval);
+                autoClickerInterval = null;
+            }
+        }
+
+        // Upgrade functions
+        function upgradeClick() {
+            if (points >= upgradeClickCost) {
+                points -= upgradeClickCost;
+                pointsPerClick *= clickUpgradeMultiplier;
+                clickUpgradeLevel += 1;
+                upgradeClickCost *= (1 + clickUpgradeLevel * 0.1); // Increase cost by 10% per level
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        function upgradeAuto() {
+            if (points >= upgradeAutoCost) {
+                points -= upgradeAutoCost;
+                pointsPerSecond += 1; // Increase points per second by 1
+                autoUpgradeLevel += 1;
+                upgradeAutoCost *= (1 + autoUpgradeLevel * 0.15); // Increase cost by 15% per level
+                startAutoClicker();
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        function upgradeCostReduction() {
+            if (points >= upgradeCostReductionCost) {
+                points -= upgradeCostReductionCost;
+                costReductionLevel += 1;
+                // Reduce costs
+                upgradeClickCost *= costReductionMultiplier;
+                upgradeAutoCost *= costReductionMultiplier;
+                // Own cost increases to avoid becoming too cheap
+                upgradeCostReductionCost *= (1 + costReductionLevel * 0.2); // Increase own cost by 20% per level
+                updateDisplay();
+                saveGame();
+            }
+        }
+
+        // Start the auto-clicker interval
+        function startAutoClicker() {
+            if (autoClickerInterval) {
+                clearInterval(autoClickerInterval);
+            }
+            autoClickerInterval = setInterval(function() {
+                if (pointsPerSecond > 0) {
+                    points += pointsPerSecond * rebirthMultiplier;
+                    updateDisplay();
+                    saveGame();
+                }
+            }, 1000); // Every 1 second
+        }
+
+        // Attach upgrade buttons
+        document.getElementById('upgradeClickButton').addEventListener('click', upgradeClick);
+        document.getElementById('upgradeAutoButton').addEventListener('click', upgradeAuto);
+        document.getElementById('upgradeCostReductionButton').addEventListener('click', upgradeCostReduction);
+
+        // Attach rebirth button
+        document.getElementById('rebirthButton').addEventListener('click', rebirth);
+
+        // Load the game when the page loads
+        window.onload = function() {
+            loadGame();
+            updateDisplay();
+            startAutoClicker();
+        }
+    </script>
+</body>
+</html>
